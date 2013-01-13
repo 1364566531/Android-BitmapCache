@@ -19,12 +19,17 @@ import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
+import android.graphics.drawable.TransitionDrawable;
 import android.util.AttributeSet;
 import android.widget.ImageView;
 
 public class CacheableImageView extends ImageView {
 
+	private static final int FADE_DURATION = 200;
+	
 	private CacheableBitmapWrapper mDisplayedBitmapWrapper;
+	
+	private BitmapDrawable mEmptyDrawable;
 
 	public CacheableImageView(Context context) {
 		super(context);
@@ -40,9 +45,19 @@ public class CacheableImageView extends ImageView {
 	 * @param wrapper - Wrapper to display.s
 	 */
 	public void setImageCachedBitmap(final CacheableBitmapWrapper wrapper) {
+		setImageCachedBitmap(wrapper, false);
+	}
+	
+	/**
+	 * Sets the current {@code CacheableBitmapWrapper}, and displays it Bitmap.
+	 * 
+	 * @param wrapper - Wrapper to display.s
+	 * @param withFade - use fade in effect
+	 */
+	public void setImageCachedBitmap(final CacheableBitmapWrapper wrapper, boolean withFade) {
 		if (null != wrapper) {
 			wrapper.setBeingUsed(true);
-			setImageDrawable(new BitmapDrawable(getResources(), wrapper.getBitmap()));
+			setImageDrawable(new BitmapDrawable(getResources(), wrapper.getBitmap()), withFade);
 		} else {
 			setImageDrawable(null);
 		}
@@ -59,6 +74,18 @@ public class CacheableImageView extends ImageView {
 	@Override
 	public void setImageDrawable(Drawable drawable) {
 		super.setImageDrawable(drawable);
+		resetCachedDrawable();
+	}
+	
+	public void setImageDrawable(Drawable drawable, boolean withFade) {
+		if (withFade) {
+			if (mEmptyDrawable == null) mEmptyDrawable = new BitmapDrawable(getResources());
+			TransitionDrawable fadeInDrawable = new TransitionDrawable(new Drawable[] { mEmptyDrawable, drawable });
+			setImageDrawable(fadeInDrawable);
+			fadeInDrawable.startTransition(FADE_DURATION);
+		} else {
+			setImageDrawable(drawable);
+		}
 		resetCachedDrawable();
 	}
 
