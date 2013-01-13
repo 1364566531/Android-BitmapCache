@@ -29,7 +29,7 @@ public class CacheableImageView extends ImageView {
 	
 	private CacheableBitmapWrapper mDisplayedBitmapWrapper;
 	
-	private BitmapDrawable mEmptyDrawable;
+	private static BitmapDrawable mEmptyDrawable;
 
 	public CacheableImageView(Context context) {
 		super(context);
