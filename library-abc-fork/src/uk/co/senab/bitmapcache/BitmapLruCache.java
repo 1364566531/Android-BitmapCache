@@ -277,6 +277,51 @@ public class BitmapLruCache {
 	public CacheableBitmapWrapper put(final String url, final InputStream inputStream) {
 		return put(url, inputStream, true);
 	}
+	
+	/**
+	 * Caches resulting bitmap from {@code inputStream} for {@code url} into all
+	 * enabled caches. This version of the method should be preferred as it
+	 * allows the original image contents to be cached, rather than a
+	 * re-compressed version.
+	 * <p />
+	 * The contents of the InputStream will be copied to a temporary file, then
+	 * the file will be decoded into a Bitmap. Providing the decode worked:
+	 * <ul>
+	 * <li>If the memory cache is enabled, the Bitmap will be cached to memory</li>
+	 * <li>If the disk cache is enabled, the contents of the file will be cached
+	 * to disk.</li>
+	 * </ul>
+	 * <p/>
+	 * As this method may write to the file system, this method is not safe to
+	 * be called from the main thread.
+	 * 
+	 * @param url - String representing the URL of the image
+	 * @param inputStream - InputStream opened from {@code url}
+	 * @param reqWidth - required sample width in pixels.
+	 * @param reqHeight - required sample height in pixels.
+	 * @return CacheableBitmapWrapper which can be used to display the bitmap.
+	 */
+	public CacheableBitmapWrapper put(final String url, final InputStream inputStream, int reqWidth, int reqHeight) {
+		return put(url, inputStream, true, reqWidth, reqHeight);
+	}
+	
+	/**
+	 * Advanced version of {@link #put(String, InputStream)} which allows
+	 * selective caching to the disk cache (if the disk cache is enabled).
+	 * <p/>
+	 * As this method may write to the file system, this method is not safe to
+	 * be called from the main thread.
+	 * 
+	 * @param url - String representing the URL of the image
+	 * @param inputStream - InputStream opened from {@code url}
+	 * @param cacheToDiskIfEnabled - Cache to disk, if the disk cache is
+	 *            enabled.           
+	 * @return CacheableBitmapWrapper which can be used to display the bitmap.
+	 */
+	public CacheableBitmapWrapper put(final String url, final InputStream inputStream,
+			final boolean cacheToDiskIfEnabled) {
+		return put(url, inputStream, cacheToDiskIfEnabled, 0, 0);
+	}
 
 	/**
 	 * Advanced version of {@link #put(String, InputStream)} which allows
@@ -289,10 +334,12 @@ public class BitmapLruCache {
 	 * @param inputStream - InputStream opened from {@code url}
 	 * @param cacheToDiskIfEnabled - Cache to disk, if the disk cache is
 	 *            enabled.
+	 * @param reqWidth - required sample width in pixels.
+	 * @param reqHeight - required sample height in pixels.           
 	 * @return CacheableBitmapWrapper which can be used to display the bitmap.
 	 */
 	public CacheableBitmapWrapper put(final String url, final InputStream inputStream,
-			final boolean cacheToDiskIfEnabled) {
+			final boolean cacheToDiskIfEnabled, int reqWidth, int reqHeight) {
 		// First we need to save the stream contents to a temporary file, so it
 		// can be read multiple times
 		File tmpFile = null;
@@ -316,8 +363,24 @@ public class BitmapLruCache {
 
 		if (null != tmpFile) {
 			// Try and decode File
-			Bitmap bitmap = BitmapFactory.decodeFile(tmpFile.getAbsolutePath());
+			//Bitmap bitmap = BitmapFactory.decodeFile(tmpFile.getAbsolutePath());
 
+			final BitmapFactory.Options options = new BitmapFactory.Options();
+			
+			if (reqHeight > 0 && reqWidth > 0) {
+				// First decode with inJustDecodeBounds=true to check dimensions
+				options.inJustDecodeBounds = true;
+				BitmapFactory.decodeFile(tmpFile.getAbsolutePath(), options);
+		    
+				// Calculate inSampleSize
+				options.inSampleSize = calculateInSampleSize(options, reqWidth, reqHeight);
+
+				// Decode bitmap with inSampleSize set
+				options.inJustDecodeBounds = false;
+			}
+		    
+		    Bitmap bitmap = BitmapFactory.decodeFile(tmpFile.getAbsolutePath(), options);
+			
 			if (null != bitmap) {
 				wrapper = new CacheableBitmapWrapper(url, bitmap);
 
@@ -404,6 +467,23 @@ public class BitmapLruCache {
 		// Schedule a flush
 		mDiskCacheFuture = mDiskCacheFlusherExecutor.schedule(mDiskCacheFlusherRunnable, DISK_CACHE_FLUSH_DELAY_SECS,
 				TimeUnit.SECONDS);
+	}
+	
+	private static int calculateInSampleSize(
+			BitmapFactory.Options options, int reqWidth, int reqHeight) {
+		// Raw height and width of image
+		final int height = options.outHeight;
+		final int width = options.outWidth;
+		int inSampleSize = 1;
+
+		if (height > reqHeight || width > reqWidth) {
+			if (width > height) {
+				inSampleSize = Math.round((float)height / (float)reqHeight);
+			} else {
+				inSampleSize = Math.round((float)width / (float)reqWidth);
+			}
+		}
+		return inSampleSize;
 	}
 
 	/**
