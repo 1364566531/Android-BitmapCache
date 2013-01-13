@@ -86,7 +86,6 @@ public class CacheableImageView extends ImageView {
 		} else {
 			setImageDrawable(drawable);
 		}
-		resetCachedDrawable();
 	}
 
 	@Override
