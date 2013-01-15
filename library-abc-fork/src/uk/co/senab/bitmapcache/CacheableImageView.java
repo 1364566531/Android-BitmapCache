@@ -21,6 +21,7 @@ import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.TransitionDrawable;
 import android.util.AttributeSet;
+import android.util.Log;
 import android.widget.ImageView;
 
 public class CacheableImageView extends ImageView {
@@ -57,7 +58,16 @@ public class CacheableImageView extends ImageView {
 	public void setImageCachedBitmap(final CacheableBitmapWrapper wrapper, boolean withFade) {
 		if (null != wrapper) {
 			wrapper.setBeingUsed(true);
-			setImageDrawable(new BitmapDrawable(getResources(), wrapper.getBitmap()), withFade);
+			//setImageDrawable(new BitmapDrawable(getResources(), wrapper.getBitmap()), withFade);
+			
+			// be defensive before we attempt to draw
+			if (!wrapper.getBitmap().isRecycled()) {
+				setImageDrawable(new BitmapDrawable(getResources(), wrapper.getBitmap()), withFade);
+			} else {
+				Log.e(Constants.LOG_TAG, "Trying to draw a recycled bitmap!!! : " + wrapper.getUrl());
+				setImageDrawable(null);
+			}
+			
 		} else {
 			setImageDrawable(null);
 		}
